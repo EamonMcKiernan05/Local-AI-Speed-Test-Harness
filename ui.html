@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Model Bench</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c8a15f'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#17130e; --panel:#1e1a14; --panel2:#262017; --line:rgba(234,227,211,.10);
+  --ink:#eae3d3; --muted:#a29885; --faint:#8e8471;
+  --brass:#c8a15f; --brass-hi:#d8b26e; --brass-ink:#221809;
+  --sage:#93a383; --rust:#c96f4a;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);
+  font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-variant-numeric:tabular-nums}
+.wrap{max-width:1060px;margin:0 auto;padding:38px 28px 64px}
+header.top{margin-bottom:26px}
+h1{font-size:26px;font-weight:650;letter-spacing:-.01em;margin:0 0 8px}
+.sub{color:var(--muted);margin:0;max-width:66ch}
+h2{font-size:15px;font-weight:600;margin:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:18px 20px;margin-bottom:18px}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.muted{color:var(--muted)}
+.faint{color:var(--faint)}
+/* setup */
+.fields{display:grid;grid-template-columns:1.35fr 1fr;gap:14px 20px;margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.f>span{font-size:12px;color:var(--muted)}
+.f-endpoint{grid-column:1}
+.f-label{grid-column:2}
+.f-battery{grid-column:1}
+.f-nums{grid-column:2;display:flex;gap:14px}
+.f-num{display:flex;flex-direction:column;gap:6px;width:110px}
+.f-num>span{font-size:12px;color:var(--muted)}
+.inline{display:flex;gap:8px}
+.inline input{flex:1;min-width:0}
+input[type=text],input[type=number]{background:var(--panel2);color:var(--ink);border:1px solid var(--line);
+  border-radius:6px;padding:8px 10px;font:inherit;width:100%}
+input:focus{outline:none;border-color:var(--brass);box-shadow:0 0 0 3px rgba(200,161,95,.15)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;width:max-content}
+.seg button{background:transparent;color:var(--muted);border:0;padding:7px 13px;font:inherit;cursor:pointer}
+.seg button.on{background:var(--panel2);color:var(--ink)}
+.seg button:hover{color:var(--ink)}
+.depthpreview{font-size:12px;color:var(--faint);margin-top:2px}
+.detectline{margin:2px 0 14px;font-size:13px;min-height:20px}
+.actions{display:flex;align-items:center;gap:12px}
+.btn{font:inherit;border-radius:6px;padding:9px 16px;cursor:pointer;border:1px solid transparent}
+.btn-main{background:var(--brass);color:var(--brass-ink);font-weight:600}
+.btn-main:hover{background:var(--brass-hi)}
+.btn-main:disabled{opacity:.45;cursor:not-allowed}
+.btn-quiet{background:transparent;color:var(--ink);border-color:var(--line);padding:8px 13px}
+.btn-quiet:hover{background:var(--panel2)}
+.btn-quiet:disabled{opacity:.45;cursor:not-allowed}
+#runNote{font-size:12.5px}
+/* progress */
+.prog{height:4px;background:var(--panel2);border-radius:2px;margin:13px 0 6px;overflow:hidden}
+#progBar{height:100%;width:0;background:var(--brass);transition:width .5s ease}
+.live{display:inline-block;width:8px;height:8px;background:var(--brass);border-radius:2px;
+  margin-right:7px;animation:blink 1.2s steps(2,end) infinite;vertical-align:1px}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.live{animation:none}}
+/* charts */
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:16px 0 6px}
+.chart h3{font-size:12.5px;font-weight:500;color:var(--muted);margin:0 0 4px}
+.chart svg{width:100%;height:auto;display:block}
+/* table */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+th{text-align:left;color:var(--faint);font-weight:500;font-size:11.5px;padding:8px 10px 6px;border-bottom:1px solid var(--line)}
+th:not(:first-child),td:not(:first-child){text-align:right}
+td{padding:7px 10px;border-bottom:1px solid var(--line)}
+td.st{color:var(--muted)}
+td.err{color:var(--rust)}
+tr.mean td{color:var(--muted);font-weight:600}
+tr.skiprow td{color:var(--faint)}
+tr.empty td{color:var(--faint);text-align:left}
+/* files + errors */
+.files{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:13px}
+.files .path{color:var(--faint);font-size:12px;word-break:break-all}
+a{color:var(--brass);text-decoration:none}
+a:hover{text-decoration:underline}
+pre.err{color:var(--rust);background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+  padding:12px;font-size:12px;overflow:auto;max-height:220px;margin:12px 0 0}
+/* runs list */
+ul.runs{list-style:none;margin:8px 0 0;padding:0}
+ul.runs li{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:10px 2px;border-bottom:1px solid var(--line)}
+ul.runs li:last-child{border-bottom:0}
+.r-main{min-width:0}
+.r-label{font-weight:550}
+.r-meta{font-size:12.5px;margin-left:12px}
+.r-links{display:flex;gap:14px;font-size:12.5px}
+footer.foot{color:var(--faint);font-size:12.5px;margin-top:6px}
+@media (max-width:760px){
+  .fields{grid-template-columns:1fr}
+  .f-endpoint,.f-label,.f-battery,.f-nums{grid-column:1}
+  .charts{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Model Bench</h1>
+  <p class="sub">Point at a serving endpoint and run the standard battery: prefill and decode tok/s at fixed prompt depths,
+  read straight from the server's own timings. Same prompts, same sampler, every time.</p>
+</header>
+
+<section class="panel">
+  <div class="fields">
+    <div class="f f-endpoint">
+      <span>Endpoint</span>
+      <div class="inline">
+        <input id="endpoint" type="text" value="http://127.0.0.1:8080" spellcheck="false">
+        <button id="detect" class="btn btn-quiet" type="button">Detect</button>
+      </div>
+    </div>
+    <div class="f f-label">
+      <span>Label</span>
+      <input id="label" type="text" placeholder="e.g. Qwen3.8-Flash-Next IQ3_S on 2x V100" spellcheck="false">
+    </div>
+    <div class="f f-battery">
+      <span>Battery</span>
+      <div class="seg" id="batterySeg">
+        <button type="button" data-v="standard" class="on">Standard</button>
+        <button type="button" data-v="quick">Quick</button>
+        <button type="button" data-v="custom">Custom</button>
+      </div>
+      <input id="customDepths" type="text" placeholder="10k, 50k, 100k" spellcheck="false" style="display:none;max-width:260px">
+      <div class="depthpreview" id="depthPreview">20k · 60k · 100k · 150k · 200k · 250k</div>
+    </div>
+    <div class="f f-nums">
+      <label class="f-num"><span>Gen tokens</span><input id="gen" type="number" value="400" min="16" max="8192"></label>
+      <label class="f-num"><span>Repeats</span><input id="reps" type="number" value="1" min="1" max="10"></label>
+    </div>
+  </div>
+  <div class="detectline" id="detectOut"><span class="muted">Not checked yet.</span></div>
+  <div class="actions">
+    <button id="run" class="btn btn-main" type="button">Run battery</button>
+    <button id="cancel" class="btn btn-quiet" type="button" style="display:none">Cancel</button>
+    <span id="runNote" class="muted"></span>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="head">
+    <h2>Results</h2>
+    <span id="progMeta" class="muted" style="font-size:12.5px"></span>
+  </div>
+  <div class="prog"><div id="progBar"></div></div>
+  <div class="charts">
+    <div class="chart"><h3>Prefill, tok/s</h3><svg id="chartPre" viewBox="0 0 620 150"></svg></div>
+    <div class="chart"><h3>Decode, tok/s</h3><svg id="chartDec" viewBox="0 0 620 150"></svg></div>
+  </div>
+  <table id="table">
+    <thead><tr><th>Depth</th><th>Prompt tok</th><th>Prefill tok/s</th><th>Decode tok/s</th><th>Gen tok</th><th>Wall s</th><th>Status</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div id="files" class="files"></div>
+  <div id="errBox"></div>
+</section>
+
+<section class="panel">
+  <div class="head"><h2>Previous runs</h2><span class="muted" style="font-size:12.5px">saved under runs/ on the serving box</span></div>
+  <ul id="runs" class="runs"></ul>
+</section>
+
+<footer class="foot">model-bench · measurement only. Never starts, stops or restarts your servers.</footer>
+</div>
+
+<script>
+"use strict";
+var $ = function(s){ return document.querySelector(s); };
+var NS = "http://www.w3.org/2000/svg";
+var batterySel = "standard";
+var STD = [20000,60000,100000,150000,200000,250000];
+var QUICK = [20000,150000];
+
+function fmtK(d){ return d >= 1000 ? (d/1000) + "k" : String(d); }
+function fmtDur(s){
+  if (s == null || isNaN(s) || s < 0) return "–";
+  s = Math.round(s);
+  var m = Math.floor(s/60), ss = s%60;
+  if (m > 59) return Math.floor(m/60) + "h " + (m%60) + "m";
+  return m + ":" + String(ss).padStart(2,"0");
+}
+function fmtVal(v){ if (v == null) return "–"; return v >= 100 ? String(Math.round(v)) : v.toFixed(1); }
+function niceMax(v){
+  if (!(v > 0)) return 1;
+  var p = Math.pow(10, Math.floor(Math.log10(v)));
+  var m = v/p;
+  return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p;
+}
+
+// ---- battery segmented control
+document.querySelectorAll("#batterySeg button").forEach(function(b){
+  b.addEventListener("click", function(){
+    batterySel = b.dataset.v;
+    document.querySelectorAll("#batterySeg button").forEach(function(x){
+      x.classList.toggle("on", x === b);
+    });
+    $("#customDepths").style.display = batterySel === "custom" ? "" : "none";
+    updateDepthPreview();
+  });
+});
+$("#customDepths").addEventListener("input", updateDepthPreview);
+function currentDepths(){
+  if (batterySel === "standard") return STD;
+  if (batterySel === "quick") return QUICK;
+  var parts = ($("#customDepths").value || "").split(/[,\s]+/).filter(Boolean);
+  var out = [];
+  for (var i = 0; i < parts.length; i++){
+    var m = parts[i].toLowerCase().match(/^(\d+)(k?)$/);
+    if (!m) return null;
+    out.push(parseInt(m[1],10) * (m[2] === "k" ? 1000 : 1));
+  }
+  out = out.filter(function(v,ix){ return out.indexOf(v) === ix; }).sort(function(a,b){ return a-b; });
+  return out.length ? out : null;
+}
+function updateDepthPreview(){
+  var d = currentDepths();
+  $("#depthPreview").textContent = d ? d.map(fmtK).join(" · ") : "type depths like 10k, 50k, 100k";
+}
+
+// ---- detect
+async function doDetect(){
+  var url = $("#endpoint").value.trim();
+  $("#detectOut").innerHTML = "<span class='muted'>checking…</span>";
+  try{
+    var r = await fetch("/api/detect?url=" + encodeURIComponent(url)).then(function(x){ return x.json(); });
+    if (!r.ok){ $("#detectOut").innerHTML = "<span class='muted'>no answer: </span>"; $("#detectOut").appendChild(document.createTextNode(r.error || "unknown")); return; }
+    var ctx = r.ctx ? ("ctx " + Number(r.ctx).toLocaleString()) : "ctx unknown";
+    $("#detectOut").innerHTML = "<span class='muted'>found </span>";
+    var strong = document.createElement("strong"); strong.textContent = r.backend;
+    $("#detectOut").appendChild(strong);
+    $("#detectOut").appendChild(document.createTextNode(" · " + (r.model || "–") + " · " + ctx));
+  }catch(e){
+    $("#detectOut").innerHTML = "<span class='muted'>check failed: " + String(e) + "</span>";
+  }
+}
+$("#detect").addEventListener("click", doDetect);
+
+// ---- run / cancel
+$("#run").addEventListener("click", async function(){
+  if (batterySel === "custom" && !currentDepths()){ $("#runNote").textContent = "custom depths look wrong. Try 10k, 50k, 100k"; return; }
+  var body = {url: $("#endpoint").value.trim(), label: $("#label").value.trim(),
+              battery: batterySel, custom: $("#customDepths").value,
+              gen: parseInt($("#gen").value,10) || 400, reps: parseInt($("#reps").value,10) || 1};
+  try{
+    var r = await fetch("/api/start", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)}).then(function(x){ return x.json(); });
+    if (r.error){ $("#runNote").textContent = r.error; return; }
+    $("#runNote").textContent = "";
+    refresh();
+  }catch(e){ $("#runNote").textContent = "start failed: " + String(e); }
+});
+$("#cancel").addEventListener("click", async function(){
+  await fetch("/api/cancel", {method:"POST"});
+  refresh();
+});
+
+// ---- rendering
+function renderJob(job){
+  var running = !!(job && job.status === "running");
+  $("#run").disabled = running;
+  $("#cancel").style.display = running ? "" : "none";
+  $("#runNote").textContent = running ? "cancel stops after the current arm finishes" : "";
+  if (!job){
+    $("#progMeta").textContent = "No run yet. Set an endpoint and hit Run.";
+    $("#progBar").style.width = "0%";
+    renderRows([]); drawCharts(null, [], "pre"); drawCharts(null, [], "dec");
+    $("#files").innerHTML = ""; $("#errBox").innerHTML = "";
+    return;
+  }
+  var el = (job.finished || (Date.now()/1000)) - job.started;
+  var t = "";
+  if (running) t += "<span class='live'></span>";
+  t += (job.current ? job.current + " · " : "") + job.status + " · " + job.done + "/" + job.total + " arms · " + fmtDur(el);
+  if (running && job.done > 0 && job.total > job.done) t += " · ~" + fmtDur(el/job.done*(job.total-job.done)) + " left";
+  $("#progMeta").innerHTML = t;
+  $("#progBar").style.width = (job.total ? Math.min(100, 100*job.done/job.total) : 0) + "%";
+  var rows = job.rows || [];
+  renderRows(rows);
+  var depths = (job.cfg && job.cfg.depths) || [];
+  drawCharts(seriesOf(rows, "prefill_tps"), depths, "pre");
+  drawCharts(seriesOf(rows, "decode_tps"), depths, "dec");
+  renderFiles(job);
+  renderErr(job);
+}
+function seriesOf(rows, key){
+  var m = new Map();
+  rows.forEach(function(r){ if (r.kind === "arm" && r[key] != null && !r.error) m.set(r.depth_k, r[key]); });
+  return m;
+}
+function renderRows(rows){
+  var tb = document.querySelector("#table tbody");
+  tb.innerHTML = "";
+  var arms = rows.filter(function(r){ return r.kind === "arm"; });
+  var skips = rows.filter(function(r){ return r.kind === "skipped"; });
+  if (!arms.length && !skips.length){
+    var tr0 = document.createElement("tr"); tr0.className = "empty";
+    var td0 = document.createElement("td"); td0.colSpan = 7;
+    td0.textContent = "No data yet.";
+    tr0.appendChild(td0); tb.appendChild(tr0);
+    return;
+  }
+  var groups = new Map();
+  arms.forEach(function(r){ if (!groups.has(r.depth_k)) groups.set(r.depth_k, []); groups.get(r.depth_k).push(r); });
+  groups.forEach(function(rs, d){
+    rs.forEach(function(r){ addRow(tb, d, r); });
+    if (rs.length > 1){
+      var okrs = rs.filter(function(r){ return r.decode_tps != null && !r.error; });
+      if (okrs.length){
+        var m = function(k){ var v = okrs.map(function(x){ return x[k]; }).filter(function(x){ return typeof x === "number"; });
+          return v.length ? v.reduce(function(a,b){ return a+b; },0)/v.length : null; };
+        addCells(tb, true, [fmtK(d) + " mean", fmtInt(m("ptok")), fmtVal(m("prefill_tps")), fmtVal(m("decode_tps")), fmtInt(m("gen")), fmtVal(m("wall_s")), "mean of " + okrs.length]);
+      }
+    }
+  });
+  skips.forEach(function(s){
+    var tr = document.createElement("tr"); tr.className = "skiprow";
+    var c = [fmtK(s.depth_k), s.reason || "skipped", "", "", "", "", "skipped"];
+    var tds = c.map(function(x, i){ var td = document.createElement("td"); td.textContent = x; if (i === 0) td.style.textAlign = "left"; return td; });
+    tr.appendChild(tds[0]);
+    var span = document.createElement("td"); span.colSpan = 5; span.textContent = s.reason || ""; span.style.textAlign = "left";
+    tr.appendChild(span); tr.appendChild(tds[6]);
+    tb.appendChild(tr);
+  });
+}
+function addRow(tb, d, r){
+  var status = r.error ? "error" : "ok";
+  addCells(tb, false, [fmtK(d), fmtInt(r.ptok), fmtVal(r.prefill_tps), fmtVal(r.decode_tps), fmtInt(r.gen), fmtVal(r.wall_s), status],
+           r.error ? "error" : "");
+  if (r.error){
+    var tbEl = document.querySelector("#table tbody tr:last-child");
+    if (tbEl) tbEl.title = r.error;
+  }
+}
+function addCells(tb, isMean, vals, cls){
+  var tr = document.createElement("tr");
+  if (isMean) tr.className = "mean";
+  vals.forEach(function(v, i){
+    var td = document.createElement("td");
+    td.textContent = v;
+    if (i === 0) td.style.textAlign = "left";
+    if (i === 6 && cls === "error") td.className = "err";
+    tr.appendChild(td);
+  });
+  tb.appendChild(tr);
+}
+function fmtInt(v){ return (typeof v === "number") ? String(Math.round(v)) : "–"; }
+
+function renderFiles(job){
+  var f = $("#files");
+  f.innerHTML = "";
+  if (!job || !job.id) return;
+  var links = [["summary.md", "summary"], ["summary.csv", "csv"], ["results.jsonl", "jsonl"], ["meta.json", "meta"]];
+  links.forEach(function(l){
+    var a = document.createElement("a");
+    a.href = "/runs/" + job.id + "/" + l[0];
+    a.textContent = l[1];
+    f.appendChild(a);
+  });
+  var pth = document.createElement("span"); pth.className = "path"; pth.textContent = job.run_dir || "";
+  f.appendChild(pth);
+  var btn = document.createElement("button");
+  btn.className = "btn btn-quiet"; btn.style.padding = "4px 10px"; btn.textContent = "copy path";
+  btn.addEventListener("click", function(){
+    (navigator.clipboard ? navigator.clipboard.writeText(job.run_dir || "") : Promise.reject()).then(
+      function(){ btn.textContent = "copied"; setTimeout(function(){ btn.textContent = "copy path"; }, 1200); },
+      function(){ btn.textContent = job.run_dir || ""; });
+  });
+  f.appendChild(btn);
+}
+function renderErr(job){
+  var box = $("#errBox");
+  box.innerHTML = "";
+  if (job && job.status === "error" && job.error){
+    var pre = document.createElement("pre"); pre.className = "err"; pre.textContent = job.error;
+    box.appendChild(pre);
+  }
+}
+
+// ---- charts
+function drawCharts(values, depths, kind){
+  var svg = $("#" + (kind === "pre" ? "chartPre" : "chartDec"));
+  var W = 620, H = 150, padL = 10, padR = 10, padT = 26, padB = 20;
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  var n = Math.max((depths || []).length, 1);
+  var slot = (W - padL - padR) / n;
+  var bw = Math.min(40, slot * 0.52);
+  var vals = values ? Array.from(values.values()) : [];
+  var vmax = niceMax(Math.max.apply(null, vals.concat([1])) * 1.18);
+  var y0 = H - padB;
+  var line = document.createElementNS(NS, "line");
+  line.setAttribute("x1", padL); line.setAttribute("x2", W - padR);
+  line.setAttribute("y1", y0); line.setAttribute("y2", y0);
+  line.setAttribute("stroke", "rgba(234,227,211,.14)");
+  line.setAttribute("stroke-width", "1");
+  svg.appendChild(line);
+  (depths || []).forEach(function(d, i){
+    var x0 = padL + slot*i + (slot - bw)/2;
+    var v = values ? values.get(d) : null;
+    if (v != null){
+      var h = Math.max(2, (v/vmax) * (H - padT - padB));
+      var rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("x", x0.toFixed(1));
+      rect.setAttribute("y", (y0 - h).toFixed(1));
+      rect.setAttribute("width", bw.toFixed(1));
+      rect.setAttribute("height", h.toFixed(1));
+      rect.setAttribute("rx", "2");
+      rect.setAttribute("fill", kind === "pre" ? "var(--sage)" : "var(--brass)");
+      svg.appendChild(rect);
+      var vt = document.createElementNS(NS, "text");
+      vt.setAttribute("x", (x0 + bw/2).toFixed(1));
+      vt.setAttribute("y", (y0 - h - 6).toFixed(1));
+      vt.setAttribute("text-anchor", "middle");
+      vt.setAttribute("font-size", "11");
+      vt.setAttribute("fill", "var(--ink)");
+      vt.textContent = fmtVal(v);
+      svg.appendChild(vt);
+    }
+    var lt = document.createElementNS(NS, "text");
+    lt.setAttribute("x", (x0 + bw/2).toFixed(1));
+    lt.setAttribute("y", (H - 5));
+    lt.setAttribute("text-anchor", "middle");
+    lt.setAttribute("font-size", "11");
+    lt.setAttribute("fill", "var(--faint)");
+    lt.textContent = fmtK(d);
+    svg.appendChild(lt);
+  });
+  if (vals.length){
+    var unit = document.createElementNS(NS, "text");
+    unit.setAttribute("x", padL); unit.setAttribute("y", 12);
+    unit.setAttribute("font-size", "10.5");
+    unit.setAttribute("fill", "var(--faint)");
+    unit.textContent = "scale 0-" + (vmax >= 100 ? Math.round(vmax) : vmax.toFixed(0)) + " tok/s";
+    svg.appendChild(unit);
+  }
+}
+
+function renderRuns(runs){
+  var ul = $("#runs");
+  ul.innerHTML = "";
+  if (!runs || !runs.length){
+    var li0 = document.createElement("li"); li0.className = "muted"; li0.textContent = "Nothing yet.";
+    ul.appendChild(li0); return;
+  }
+  runs.forEach(function(r){
+    var li = document.createElement("li");
+    var main = document.createElement("div"); main.className = "r-main";
+    var lab = document.createElement("span"); lab.className = "r-label"; lab.textContent = r.label || r.id;
+    var meta = document.createElement("span"); meta.className = "r-meta muted";
+    meta.textContent = [r.backend, r.endpoint, r.started, r.status].filter(Boolean).join(" · ");
+    main.appendChild(lab); main.appendChild(meta);
+    var links = document.createElement("div"); links.className = "r-links";
+    (r.files || []).forEach(function(fn){
+      var a = document.createElement("a");
+      a.href = "/runs/" + r.id + "/" + fn;
+      a.textContent = ({"summary.md":"summary","summary.csv":"csv","results.jsonl":"jsonl","meta.json":"meta"})[fn] || fn;
+      links.appendChild(a);
+    });
+    li.appendChild(main); li.appendChild(links);
+    ul.appendChild(li);
+  });
+}
+
+// ---- polling
+async function refresh(){
+  try{
+    var st = await fetch("/api/state").then(function(x){ return x.json(); });
+    renderJob(st.job);
+    renderRuns(st.runs);
+  }catch(e){ /* server restarting; keep last view */ }
+}
+setInterval(refresh, 1500);
+refresh();
+doDetect();
+</script>
+</body>
+</html>
