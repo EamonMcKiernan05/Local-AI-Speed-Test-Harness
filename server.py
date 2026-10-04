@@ -91,7 +91,7 @@ def list_runs(limit=40):
                     "endpoint": meta.get("endpoint", ""), "backend": meta.get("backend", ""),
                     "model": (meta.get("detected") or {}).get("model", ""),
                     "started": (meta.get("started_utc") or "")[:16],
-                    "status": "done" if meta.get("finished_utc") else "incomplete",
+                    "status": "aborted" if meta.get("aborted") else ("done" if meta.get("finished_utc") else "incomplete"),
                     "files": [f for f in ("summary.md", "summary.csv", "results.jsonl", "meta.json")
                               if (d / f).exists()]})
     return out

@@ -128,19 +128,26 @@ def detect(base):
         raise RuntimeError("no answer from %s (/props: %s; /v1/models: %s)"
                            % (base, props_err, models_err))
 
-    ids, strata_marker = [], False
+    ids, strata_marker, llama_marker = [], False, False
     if isinstance(models, dict) and isinstance(models.get("data"), list):
         for d in models["data"]:
-            if isinstance(d, dict) and d.get("id"):
+            if not isinstance(d, dict):
+                continue
+            if d.get("id"):
                 ids.append(d["id"])
-            if isinstance(d, dict) and ("status" in d or "meta" in d):
+            # Strata's /v1/models items carry `architecture` + `status`; llama.cpp's do not.
+            if "architecture" in d or "status" in d:
                 strata_marker = True
+            if d.get("owned_by") == "llamacpp":
+                llama_marker = True
+    if isinstance(props, dict):
+        # llama.cpp /props carries these keys; Strata's llama.cpp-style /props does not.
+        if any(k in props for k in ("chat_template_caps", "model_ftype", "endpoint_props", "build_info")):
+            llama_marker = True
 
     if strata_marker:
         info["backend"] = "strata"
-    elif isinstance(props, dict) and ("build_info" in props or "model_path" in props):
-        info["backend"] = "llamacpp"
-    elif isinstance(props, dict):
+    elif llama_marker or isinstance(props, dict):
         info["backend"] = "llamacpp"
     else:
         info["backend"] = "openai"
@@ -480,6 +487,8 @@ def run_job(cfg, on_row=None, should_stop=None, log=None):
                 emit(row)
             if stopped:
                 break
+        if should_stop and should_stop():
+            stopped = True
     finally:
         fin = summarize(rd)
         meta["finished_utc"] = iso()

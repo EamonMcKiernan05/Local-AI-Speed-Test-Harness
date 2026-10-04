@@ -19,8 +19,8 @@ can hand straight to a charting pass.
 
 | Backend | Detected by | Measurement |
 |---|---|---|
-| llama.cpp (llama-server) | `/props` with `build_info` | `POST /completion` - `timings`, `ignore_eos`, `cache_prompt: false` |
-| Strata | `/v1/models` items carrying `status`/`meta` | `POST /v1/chat/completions` - `timings` + MTP draft counters |
+| llama.cpp (llama-server) | `owned_by: llamacpp` in `/v1/models`, or `chat_template_caps` / `model_ftype` in `/props` | `POST /completion` - `timings`, `ignore_eos`, `cache_prompt: false` |
+| Strata | `/v1/models` items carrying `architecture` / `status` | `POST /v1/chat/completions` - `timings` + MTP draft counters |
 | Any OpenAI-compatible | fallback | `POST /v1/chat/completions` - server `timings` if present, else client SSE timing (marked approximate) |
 
 ## Run it

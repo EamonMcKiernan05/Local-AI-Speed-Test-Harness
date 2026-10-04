@@ -356,8 +356,10 @@ function fmtInt(v){ return (typeof v === "number") ? String(Math.round(v)) : "â€
 
 function renderFiles(job){
   var f = $("#files");
-  f.innerHTML = "";
   if (!job || !job.id) return;
+  if (f.dataset.rid === job.id) return;
+  f.dataset.rid = job.id;
+  f.innerHTML = "";
   var links = [["summary.md", "summary"], ["summary.csv", "csv"], ["results.jsonl", "jsonl"], ["meta.json", "meta"]];
   links.forEach(function(l){
     var a = document.createElement("a");
@@ -370,9 +372,21 @@ function renderFiles(job){
   var btn = document.createElement("button");
   btn.className = "btn btn-quiet"; btn.style.padding = "4px 10px"; btn.textContent = "copy path";
   btn.addEventListener("click", function(){
-    (navigator.clipboard ? navigator.clipboard.writeText(job.run_dir || "") : Promise.reject()).then(
-      function(){ btn.textContent = "copied"; setTimeout(function(){ btn.textContent = "copy path"; }, 1200); },
-      function(){ btn.textContent = job.run_dir || ""; });
+    var t = job.run_dir || "";
+    var ok = false;
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+    } catch(e){ ok = false; }
+    if (!ok && navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){ btn.textContent = "copied"; }, function(){ btn.textContent = t; });
+      return;
+    }
+    btn.textContent = ok ? "copied" : t;
+    if (ok) setTimeout(function(){ btn.textContent = "copy path"; }, 1200);
   });
   f.appendChild(btn);
 }
