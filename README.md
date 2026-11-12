@@ -20,8 +20,11 @@ can hand straight to a charting pass.
 | Backend | Detected by | Measurement |
 |---|---|---|
 | llama.cpp (llama-server) | `owned_by: llamacpp` in `/v1/models`, or `chat_template_caps` / `model_ftype` in `/props` | `POST /completion` - `timings`, `ignore_eos`, `cache_prompt: false` |
-| Strata | `/v1/models` items carrying `architecture` / `status` | `POST /v1/chat/completions` - `timings` + MTP draft counters |
+| Strata | `/v1/models` items carrying `architecture` / `status`, no `owned_by` | `POST /v1/chat/completions` - `timings` + MTP draft counters |
 | Any OpenAI-compatible | fallback | `POST /v1/chat/completions` - server `timings` if present, else client SSE timing (marked approximate) |
+
+> Note: newer llama.cpp builds (b115xx+) also put `architecture` on their `/v1/models` items,
+> so the classifier checks `owned_by: llamacpp` first - those builds still read as llama.cpp.
 
 ## Run it
 

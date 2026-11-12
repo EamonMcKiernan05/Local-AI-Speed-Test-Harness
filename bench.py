@@ -135,11 +135,13 @@ def detect(base):
                 continue
             if d.get("id"):
                 ids.append(d["id"])
-            # Strata's /v1/models items carry `architecture` + `status`; llama.cpp's do not.
-            if "architecture" in d or "status" in d:
-                strata_marker = True
+            # Strata's /v1/models items carry `architecture` + `status` and no `owned_by`.
+            # Newer llama.cpp (b115xx+) also puts `architecture` on its items, so
+            # classify by the self-identifier first.
             if d.get("owned_by") == "llamacpp":
                 llama_marker = True
+            elif "architecture" in d or "status" in d:
+                strata_marker = True
     if isinstance(props, dict):
         # llama.cpp /props carries these keys; Strata's llama.cpp-style /props does not.
         if any(k in props for k in ("chat_template_caps", "model_ftype", "endpoint_props", "build_info")):
